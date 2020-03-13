@@ -1,7 +1,9 @@
-up: 
-	docker-compose up -d
+.DEFAULT_GOAL := reload
 
 reload: down build up
+	docker-compose up -d
+
+up: 
 	docker-compose up -d
 
 down:
