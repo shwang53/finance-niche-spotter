@@ -37,7 +37,7 @@ class Quote(Resource):
         spy = float(quote_dict['spy'.upper()])
         tvix = float(quote_dict['tvix'.upper()])
 
-        return {"%d / %d" % (spy, tvix): spy/tvix} 
+        return {"%d(SPY)/%d(TVIX)"%(spy, tvix): round(spy/tvix,2)} 
 
 
 api.add_resource(Quote, '/<string:symbol>')
