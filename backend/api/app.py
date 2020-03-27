@@ -1,7 +1,14 @@
+import json
 import requests
+import sys
+import time
 
-from flask import Flask
+from datetime import datetime
+from flask import Flask, render_template, Response
+from flask_cors import CORS, cross_origin
 from flask_restful import Resource, Api
+from sseclient import SSEClient
+
 
 app = Flask(__name__)
 api = Api(app)
@@ -9,7 +16,9 @@ api = Api(app)
 REAL_TIME_PRICE_URL = "https://financialmodelingprep.com/api/v3/stock/real-time-price/"
 quote_dict = dict()
 
+
 class Quote(Resource):
+    ''' Provide APIs for stock quote and magic index with the quotes'''
     
     def get(self, symbol):
         if symbol == 'magic':
@@ -36,11 +45,69 @@ class Quote(Resource):
  
         spy = float(quote_dict['spy'.upper()])
         tvix = float(quote_dict['tvix'.upper()])
+        
+        # result = [quote_dict, {"%d(SPY)/%d(TVIX)"%(spy, tvix): round(spy/tvix,2)}]
+        quote_dict.update({"%d(SPY)/%d(TVIX)"%(spy, tvix): round(spy/tvix,2)})
 
-        return {"%d(SPY)/%d(TVIX)"%(spy, tvix): round(spy/tvix,2)} 
+        return quote_dict
+
+api.add_resource(Quote, '/quote/<string:symbol>')
 
 
-api.add_resource(Quote, '/<string:symbol>')
+def event_stream():
+    ''' Push event stream implementation '''
+
+    stream_url = ('https://cloud-sse.iexapis.com/stable/stocksUSNoUTP?'
+           'token=sk_e0913d6674b74556b0b0263369814ecb&symbols=spy')
+    messages = SSEClient(stream_url)
+    timestamp_list = []
+    count = 0 
+
+    for msg in messages:
+        timestamp_list.append(time.time())
+        count = count + 1 
+        
+        if timestamp_list[-1] - timestamp_list[0] > 1:
+            event = json.loads(msg.data.replace("[", "").replace("]", ""))
+         
+            timestamp_list = [timestamp_list[-1]]
+            count_to_yield = count
+            count = 0 
+          
+            yield "%d at %s\n" % (count_to_yield, datetime.now().strftime("%H:%M:%S"))
+
+
+def test_stream():
+    ''' Proof of concept for event stream function '''
+
+    url = 'https://stream.wikimedia.org/v2/stream/recentchange'
+    for event in SSEClient(url):
+        d = event.data
+        print(d["meta"])
+        if event.event == 'message':
+            try:
+                # event.data["secret": "Yoon"]
+                change = json.loads(event.data)
+            except ValueError:
+                pass
+            else:
+                # print('{user} edited {title}'.format(**change))
+                # yield '{user} edited {title}\n'.format(**change)
+                yield str(event)
+
+
+@app.route('/stream')
+@cross_origin()
+def stream():
+    ''' Event stream API '''
+
+    return Response(event_stream(), mimetype="text/event-stream")
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', threaded=True)
