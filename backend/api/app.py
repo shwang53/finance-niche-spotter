@@ -60,21 +60,27 @@ def event_stream():
     stream_url = ('https://cloud-sse.iexapis.com/stable/stocksUSNoUTP?'
            'token=sk_e0913d6674b74556b0b0263369814ecb&symbols=spy')
     messages = SSEClient(stream_url)
-    timestamp_list = []
-    count = 0 
+    current_time_str = datetime.now().strftime("%H:%M:%S")
+    count = quote_count = current_price = 0 
 
     for msg in messages:
-        timestamp_list.append(time.time())
-        count = count + 1 
-        
-        if timestamp_list[-1] - timestamp_list[0] > 1:
-            event = json.loads(msg.data.replace("[", "").replace("]", ""))
+        event = json.loads(msg.data.replace("[", "").replace("]", ""))
+
+        latest_update_unix = event["latestUpdate"][0:-3]
+        latest_update_obj = datetime.fromtimestamp(latest_update_unix)
+        latest_update_str = latest_update_obj.strftime("%H:%M:%S")
+
+        latest_price = float(event['latestPrice'])
          
-            timestamp_list = [timestamp_list[-1]]
-            count_to_yield = count
-            count = 0 
-          
-            yield "%d at %s\n" % (count_to_yield, datetime.now().strftime("%H:%M:%S"))
+        if current_time_str == latest_update_str and current_price != latest_price:
+            quote_count = quote_count + 1
+        elif current_time_str == latest_update_str:
+            count = count + 1
+        else:  
+            yield "%d : %d at %s\n" % (count, quote_count, latest_update_str)
+            count = quote_count = 0
+            current_time_str = latest_update_str
+            current_price = latest_price
 
 
 def test_stream():
@@ -101,12 +107,13 @@ def test_stream():
 def stream():
     ''' Event stream API '''
 
+    # return Response(event_stream(), mimetype="text/event-stream")
     return Response(event_stream(), mimetype="text/event-stream")
 
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return 'Hello, World!'
 
 
 if __name__ == '__main__':
