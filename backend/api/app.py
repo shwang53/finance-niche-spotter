@@ -66,7 +66,7 @@ def event_stream():
     for msg in messages:
         event = json.loads(msg.data.replace("[", "").replace("]", ""))
 
-        latest_update_unix = event["latestUpdate"][0:-3]
+        latest_update_unix = event["latestUpdate"]/1000
         latest_update_obj = datetime.fromtimestamp(latest_update_unix)
         latest_update_str = latest_update_obj.strftime("%H:%M:%S")
 
@@ -77,7 +77,7 @@ def event_stream():
         elif current_time_str == latest_update_str:
             count = count + 1
         else:  
-            yield "%d : %d at %s\n" % (count, quote_count, latest_update_str)
+            yield "%d : %d - %s\n" % (count, quote_count, latest_update_str)
             count = quote_count = 0
             current_time_str = latest_update_str
             current_price = latest_price
