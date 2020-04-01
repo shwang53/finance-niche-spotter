@@ -7,6 +7,7 @@ from datetime import datetime
 from flask import Flask, render_template, Response
 from flask_cors import CORS, cross_origin
 from flask_restful import Resource, Api
+from simplejson import JSONDecodeError
 from sseclient import SSEClient
 
 
@@ -60,27 +61,42 @@ def event_stream():
     stream_url = ('https://cloud-sse.iexapis.com/stable/stocksUSNoUTP?'
            'token=sk_e0913d6674b74556b0b0263369814ecb&symbols=spy')
     messages = SSEClient(stream_url)
-    current_time_str = datetime.now().strftime("%H:%M:%S")
+    last_second = datetime.now().strftime("%H:%M:%S")
     count = quote_count = current_price = 0 
 
     for msg in messages:
-        event = json.loads(msg.data.replace("[", "").replace("]", ""))
+        try:
+            event = json.loads(msg.data.replace("[", "").replace("]", ""))
+        except:
+            print("event can't be parsed.")
 
-        latest_update_unix = event["latestUpdate"]/1000
-        latest_update_obj = datetime.fromtimestamp(latest_update_unix)
-        latest_update_str = latest_update_obj.strftime("%H:%M:%S")
-
-        latest_price = float(event['latestPrice'])
+        latest_price = float(event['iexAskPrice'])
          
-        if current_time_str == latest_update_str and current_price != latest_price:
-            quote_count = quote_count + 1
-        elif current_time_str == latest_update_str:
+        print(event)
+        print("===============")
+        print("current: %s" % last_second)
+        print("latest: %s" % latest_price)
+        print("current: %s" % current_price)
+
+        print("quote_count: %d" % quote_count)
+        now = datetime.now().strftime("%H:%M:%S")
+        if last_second == now:
             count = count + 1
+            if current_price != latest_price:
+                print("Price change from %s to %s" % \
+                    (current_price, latest_price))
+                quote_count = quote_count + 1
+                current_price = latest_price
         else:  
-            yield "%d : %d - %s\n" % (count, quote_count, latest_update_str)
+            tmp_count = count
+            tmp_quote_count = quote_count
             count = quote_count = 0
-            current_time_str = latest_update_str
+            last_second = now 
             current_price = latest_price
+            yield "%d : %d : %s - %s\n" % \
+                (tmp_count, tmp_quote_count, current_price, last_second)
+
+        # print("===============")
 
 
 def test_stream():
