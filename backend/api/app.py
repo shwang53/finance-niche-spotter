@@ -72,13 +72,6 @@ def event_stream():
 
         latest_price = float(event['iexAskPrice'])
          
-        print(event)
-        print("===============")
-        print("current: %s" % last_second)
-        print("latest: %s" % latest_price)
-        print("current: %s" % current_price)
-
-        print("quote_count: %d" % quote_count)
         now = datetime.now().strftime("%H:%M:%S")
         if last_second == now:
             count = count + 1
@@ -93,10 +86,8 @@ def event_stream():
             count = quote_count = 0
             last_second = now 
             current_price = latest_price
-            yield "%d : %d : %s - %s\n" % \
-                (tmp_count, tmp_quote_count, current_price, last_second)
-
-        # print("===============")
+            yield "%s : %s : %d : %d\n" % \
+                (last_second, current_price, tmp_quote_count, tmp_count)
 
 
 def test_stream():
