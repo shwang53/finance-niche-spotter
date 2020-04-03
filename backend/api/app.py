@@ -64,30 +64,36 @@ def event_stream():
     last_second = datetime.now().strftime("%H:%M:%S")
     count = quote_count = current_price = 0 
 
-    for msg in messages:
-        try:
-            event = json.loads(msg.data.replace("[", "").replace("]", ""))
-        except:
-            print("event can't be parsed.")
+    daily_ingest = 'daily_ingest-' + datetime.now().strftime("%Y-%m-%d") \
+                   + '.csv'
 
-        latest_price = float(event['iexAskPrice'])
-         
-        now = datetime.now().strftime("%H:%M:%S")
-        if last_second == now:
-            count = count + 1
-            if current_price != latest_price:
-                print("Price change from %s to %s" % \
-                    (current_price, latest_price))
-                quote_count = quote_count + 1
-                current_price = latest_price
-        else:  
-            tmp_count = count
-            tmp_quote_count = quote_count
-            count = quote_count = 0
-            last_second = now 
-            current_price = latest_price
-            yield "%s : %s : %d : %d\n" % \
-                (last_second, current_price, tmp_quote_count, tmp_count)
+    with open(daily_ingest, mode='a') as f:
+        for msg in messages:
+            try:
+                event = json.loads(msg.data.replace("[", "").replace("]", ""))
+            except:
+                print("Failed to serialize the event to json object.")
+
+            latest_ask = float(event['iexAskPrice'])
+            latest_bid = float(event['iexBidPrice'])
+             
+            now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+            if last_second == now:
+                count = count + 1
+                if current_price != latest_ask:
+                    quote_count = quote_count + 1
+                    current_price = latest_ask
+            else:  
+                tmp_count = count
+                tmp_quote_count = quote_count
+                count = quote_count = 0
+                last_second = now 
+                current_price = latest_ask
+                line = "%s,%s,%s,%d,%d\n" % \
+                    (last_second, latest_bid, latest_ask, 
+                     tmp_quote_count, tmp_count)
+                f.write(line)
+                yield(line)
 
 
 def test_stream():
